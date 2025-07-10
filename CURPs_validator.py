@@ -207,6 +207,11 @@ def crear_reporte_detallado(resultados, resumen):
         ws.title = "Análisis Primeros 13"
     ws_resumen = wb.create_sheet("Resumen", 0)
     
+    # Crear hojas adicionales para filtros específicos
+    ws_validas_18 = wb.create_sheet("Válidas 18 dígitos", 2)
+    ws_validas_13 = wb.create_sheet("Válidas 13 dígitos", 3)
+    ws_validas_ambas = wb.create_sheet("Válidas 18 y 13 dígitos", 4)
+    
     # Estilos
     fill_valido = PatternFill(start_color='C6EFCE', end_color='C6EFCE', fill_type='solid')
     fill_parcial = PatternFill(start_color='FFEB9C', end_color='FFEB9C', fill_type='solid')
@@ -337,6 +342,97 @@ def crear_reporte_detallado(resultados, resumen):
         if ws.dimensions:
             ws.auto_filter.ref = ws.dimensions
     
+    # Función auxiliar para crear hojas filtradas
+    def crear_hoja_filtrada(worksheet, datos_filtrados, titulo):
+        if not datos_filtrados:
+            worksheet['A1'] = f"No hay registros que cumplan el criterio: {titulo}"
+            worksheet['A1'].font = Font(bold=True, color='FF0000')
+            return
+        
+        # Crear encabezados
+        for col_num, col_name in enumerate(columnas, 1):
+            cell = worksheet.cell(row=1, column=col_num, value=col_name)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.border = thin_border
+            cell.alignment = Alignment(horizontal='center', vertical='center')
+        
+        # Agregar datos filtrados
+        for row_num, result in enumerate(datos_filtrados, 2):
+            # Determinar estilo basado en estado de primeros 13
+            if result['estado_primeros_13'] == 'VÁLIDOS':
+                fill = fill_valido
+                font = font_valido
+            elif result['estado_primeros_13'] == 'PARCIALMENTE VÁLIDOS':
+                fill = fill_parcial
+                font = font_parcial
+            else:
+                fill = fill_invalido
+                font = font_invalido
+            
+            # Preparar datos
+            componentes_validos = ', '.join(result.get('componentes_validos_13', []))
+            errores = ', '.join(result.get('errores_primeros_13', []))
+            
+            datos = [
+                result['curp_original'],
+                result['longitud_total'],
+                result['estado_completo'],
+                result['estado_primeros_13'],
+                result['primer_apellido'],
+                result['vocal_interna'],
+                result['segundo_apellido'],
+                result['nombre'],
+                result['fecha_nacimiento'],
+                result.get('fecha_formateada', ''),
+                result.get('edad', ''),
+                result['sexo_codigo'],
+                result.get('sexo_legible', ''),
+                result['entidad_codigo'],
+                result.get('entidad_legible', ''),
+                result['consonantes'],
+                result['homoclave'],
+                componentes_validos,
+                errores
+            ]
+            
+            for col_num, value in enumerate(datos, 1):
+                cell = worksheet.cell(row=row_num, column=col_num, value=value)
+                cell.fill = fill
+                cell.font = font if col_num <= 4 else font_normal
+                cell.border = thin_border
+                cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
+        
+        # Ajustar ancho de columnas
+        for col_idx, col in enumerate(worksheet.columns, 1):
+            max_length = 0
+            column_letter = get_column_letter(col_idx)
+            for cell in col:
+                if cell.value is not None:
+                    try:
+                        value_str = str(cell.value)
+                        value_length = len(value_str)
+                        if value_length > max_length:
+                            max_length = value_length
+                    except:
+                        pass
+            adjusted_width = min(max_length + 2, 50)
+            worksheet.column_dimensions[column_letter].width = adjusted_width
+        
+        # Filtros automáticos
+        if worksheet.dimensions:
+            worksheet.auto_filter.ref = worksheet.dimensions
+    
+    # Filtrar datos para cada hoja
+    validas_18 = [r for r in resultados if r['estado_completo'] == 'VÁLIDA']
+    validas_13 = [r for r in resultados if r['estado_primeros_13'] == 'VÁLIDOS']
+    validas_ambas = [r for r in resultados if r['estado_completo'] == 'VÁLIDA' and r['estado_primeros_13'] == 'VÁLIDOS']
+    
+    # Crear hojas filtradas
+    crear_hoja_filtrada(ws_validas_18, validas_18, "CURPs válidas en 18 dígitos")
+    crear_hoja_filtrada(ws_validas_13, validas_13, "CURPs válidas en primeros 13 dígitos")
+    crear_hoja_filtrada(ws_validas_ambas, validas_ambas, "CURPs válidas en ambos criterios")
+    
     return wb
 
 # Leer el archivo Excel
@@ -376,8 +472,9 @@ nombre_archivo = 'Analisis_Primeros_13_CURP.xlsx'
 wb.save(nombre_archivo)
 print(f"\nReporte generado: '{nombre_archivo}'")
 print("El archivo incluye:")
-print("- Todos los datos de los primeros 13 caracteres")
-print("- Estado de validación completa (18 caracteres)")
-print("- Componentes individuales de cada CURP")
-print("- Información clara y fácil de leer")
-print("- Filtros para análisis rápido")
+print("- Hoja 'Resumen': Estadísticas generales")
+print("- Hoja 'Análisis Primeros 13': Todos los datos con análisis detallado")
+print("- Hoja 'Válidas 18 dígitos': Solo CURPs válidas en formato completo")
+print("- Hoja 'Válidas 13 dígitos': Solo CURPs con primeros 13 válidos")
+print("- Hoja 'Válidas 18 y 13 dígitos': CURPs válidas en ambos criterios")
+print("- Información clara y fácil de leer con filtros automáticos")
