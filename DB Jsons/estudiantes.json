@@ -1,56 +1,101 @@
 [
   {
     "CURP": "JOQG231213HCMZNH00",
-    "CCT": "30ECB0011R",
-    "Carrera": "13",
-    "Promedio": "73"
+    "Promedio": 73,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "13/12/2023",
+    "Edad": 1,
+    "CarreraId": 13,
+    "PlantelId": 12449,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "PASO DE OVEJAS"
   },
   {
     "CURP": "VAKG721231HCHZTN51",
-    "CCT": "30ECB0007E",
-    "Carrera": "7",
-    "Promedio": "86"
+    "Promedio": 86,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "31/12/1972",
+    "Edad": 52,
+    "CarreraId": 7,
+    "PlantelId": 12359,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "OMEALCA"
   },
   {
     "CURP": "UIZA560704MCHTRF53",
-    "CCT": "30ETH0667Y",
-    "Carrera": "8",
-    "Promedio": "70"
+    "Promedio": 70,
+    "Sexo": "Femenino",
+    "FechaNacimiento": "04/07/1956",
+    "Edad": 69,
+    "CarreraId": 8,
+    "PlantelId": 12297,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "MINATITLÁN"
   },
   {
     "CURP": "MUXO120526HNLKYM59",
-    "CCT": "30ECB0038Y",
-    "Carrera": "9",
-    "Promedio": "95"
+    "Promedio": 95,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "26/05/2012",
+    "Edad": 13,
+    "CarreraId": 9,
+    "PlantelId": 12112,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "IXCATEPEC"
   },
   {
     "CURP": "WIGY840317HNTQWG04",
-    "CCT": "30DPT0012K",
-    "Carrera": "8",
-    "Promedio": "95"
+    "Promedio": 95,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "17/03/1984",
+    "Edad": 41,
+    "CarreraId": 8,
+    "PlantelId": 12368,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "ORIZABA"
   },
   {
     "CURP": "PENU190104MTCJXX09",
-    "CCT": "30ECB0005G",
-    "Carrera": "8",
-    "Promedio": "70"
+    "Promedio": 70,
+    "Sexo": "Femenino",
+    "FechaNacimiento": "04/01/2019",
+    "Edad": 6,
+    "CarreraId": 8,
+    "PlantelId": 11632,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "ÁLAMO TEMAPACHE"
   },
   {
     "CURP": "OOUF220402HPLFPJ78",
-    "CCT": "30ETH1028I",
-    "Carrera": "11",
-    "Promedio": "72"
+    "Promedio": 72,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "02/04/2022",
+    "Edad": 3,
+    "CarreraId": 11,
+    "PlantelId": 12514,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "SAN ANDRÉS TUXTLA"
   },
   {
     "CURP": "CIZR631213HDGHBW69",
-    "CCT": "30ETH0887J",
-    "Carrera": "18",
-    "Promedio": "72"
+    "Promedio": 72,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "13/12/1963",
+    "Edad": 61,
+    "CarreraId": 18,
+    "PlantelId": 12299,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "MINATITLÁN"
   },
   {
     "CURP": "BEMX141106HTCMZY08",
-    "CCT": "30ECB0024V",
-    "Carrera": "10",
-    "Promedio": "90"
+    "Promedio": 90,
+    "Sexo": "Masculino",
+    "FechaNacimiento": "06/11/2014",
+    "Edad": 10,
+    "CarreraId": 10,
+    "PlantelId": 11808,
+    "Entidad": "VERACRUZ DE IGNACIO DE LA LLAVE",
+    "Municipio": "CAZONES DE HERRERA"
   }
 ]

@@ -1,7 +1,9 @@
 import pandas as pd
 import re
 import json
-from datetime import datetime
+from datetime import datetime, date
+import os
+import csv
 
 # Diccionario completo de entidades federativas
 ENTIDADES = {
@@ -16,27 +18,27 @@ ENTIDADES = {
     'ZS': 'Zacatecas', 'NE': 'Nacido en el Extranjero'
 }
 
-def validar_letras(texto, cantidad):
-    return len(texto) == cantidad and texto.isalpha()
-
-def validar_numeros(texto, cantidad):
-    return len(texto) == cantidad and texto.isdigit()
-
-def validar_fecha(fecha_str):
+def validar_fecha_curp(fecha_str):
+    """Valida que la fecha de nacimiento en la CURP sea válida"""
     if not validar_numeros(fecha_str, 6):
         return False
     try:
         anio = int(fecha_str[:2])
         mes = int(fecha_str[2:4])
         dia = int(fecha_str[4:6])
+        
+        # Validar mes (1-12)
         if mes < 1 or mes > 12:
             return False
-        if dia < 1 or dia > 31:
+        
+        # Validar día según el mes
+        dias_por_mes = [0, 31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+        if dia < 1 or dia > dias_por_mes[mes]:
             return False
-        if mes in [4, 6, 9, 11] and dia > 30:
-            return False
+        
+        # Validar febrero en años bisiestos
         if mes == 2:
-            siglo = 2000 if anio <= 24 else 1900
+            siglo = 2000 if anio <= int(str(date.today().year)[2:]) else 1900
             anio_completo = siglo + anio
             if anio_completo % 4 == 0 and (anio_completo % 100 != 0 or anio_completo % 400 == 0):
                 if dia > 29:
@@ -44,12 +46,19 @@ def validar_fecha(fecha_str):
             else:
                 if dia > 28:
                     return False
+        
         return True
     except ValueError:
         return False
 
+def validar_letras(texto, cantidad):
+    return len(texto) == cantidad and texto.isalpha()
+
+def validar_numeros(texto, cantidad):
+    return len(texto) == cantidad and texto.isdigit()
+
 def validar_sexo(sexo):
-    return sexo in ['H', 'M']
+    return sexo in ['H', 'M', 'X']
 
 def validar_entidad(entidad):
     return entidad in ENTIDADES
@@ -64,8 +73,8 @@ def validar_curp_18(curp):
     if len(curp_limpia) != 18:
         return False
     
-    # Verificar formato completo: 4 letras + 6 números + H/M + 5 letras + 2 alfanuméricos
-    if not re.match(r'^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z]{2}$', curp_limpia):
+    # Verificar formato completo: 4 letras + 6 números + H/M/X + 5 letras + 2 alfanuméricos
+    if not re.match(r'^[A-Z]{4}[0-9]{6}[HMX][A-Z]{5}[0-9A-Z]{2}$', curp_limpia):
         return False
     
     # Extraer componentes para validación específica
@@ -74,7 +83,7 @@ def validar_curp_18(curp):
     entidad = curp_limpia[11:13]
     
     # Validar fecha
-    if not validar_fecha(fecha):
+    if not validar_fecha_curp(fecha):
         return False
     
     # Validar sexo
@@ -87,122 +96,148 @@ def validar_curp_18(curp):
     
     return True
 
-def generar_archivo_sql(datos_completos):
-    """Genera un archivo SQL con INSERT statements para MySQL"""
-    import os
-    
-    # Crear carpeta si no existe
+def extraer_info_curp(curp):
+    """Extrae sexo (Masculino/Femenino), fecha de nacimiento (DD/MM/AAAA) y edad de la CURP"""
+    curp = curp.strip().upper()
+    # Fecha de nacimiento
+    fecha_raw = curp[4:10]  # AAMMDD
+    anio = int(fecha_raw[:2])
+    mes = int(fecha_raw[2:4])
+    dia = int(fecha_raw[4:6])
+    # Determinar siglo
+    anio_completo = 2000 + anio if anio <= int(str(date.today().year)[2:]) else 1900 + anio
+    fecha_nacimiento = f"{dia:02d}/{mes:02d}/{anio_completo}"
+    # Edad
+    hoy = date.today()
+    edad = hoy.year - anio_completo - ((hoy.month, hoy.day) < (mes, dia))
+    # Sexo
+    sexo_curp = curp[10]
+    sexo = "Masculino" if sexo_curp == 'H' else "Femenino"
+    return sexo, fecha_nacimiento, edad
+
+def cargar_diccionario_carreras():
+    path = os.path.join('Mysql Queries', 'Carreras.sql')
+    carreras = {}
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip().startswith('('):
+                    parts = line.strip('(),\n ').split(',')
+                    if len(parts) >= 3:
+                        carrera_id = int(parts[0])
+                        clave = parts[1].strip().strip("'")
+                        carreras[clave] = carrera_id
+    return carreras
+
+def cargar_diccionario_planteles():
+    path = os.path.join('Mysql Queries', 'Planteles.sql')
+    planteles = {}
+    if os.path.exists(path):
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip().startswith('('):
+                    parts = line.strip('(),\n ').split(',')
+                    if len(parts) >= 7:
+                        plantel_id = int(parts[0])
+                        cct = parts[1].strip().strip("'")
+                        entidad = parts[2].strip().strip("'")
+                        municipio = parts[3].strip().strip("'")
+                        planteles[cct] = {
+                            'PlantelId': plantel_id,
+                            'Entidad': entidad,
+                            'Municipio': municipio
+                        }
+    return planteles
+
+def generar_archivo_sql_estudiantes(datos_completos):
     os.makedirs('Mysql Queries', exist_ok=True)
-    
-    # Generar el archivo SQL
-    with open('Mysql Queries/insert_estudiantes.sql', 'w', encoding='utf-8') as f:
-        # Escribir comentario de encabezado
-        f.write("-- Script SQL para insertar estudiantes con CURPs válidas\n")
-        f.write("-- Generado automáticamente el: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
-        f.write("-- Total de registros: " + str(len(datos_completos)) + "\n\n")
-        
-        # Escribir INSERT statements
-        f.write("-- Insertar datos de estudiantes\n")
-        f.write("INSERT INTO estudiantes (curp, cct, clave_carrera, promedio) VALUES\n")
-        
-        for i, dato in enumerate(datos_completos):
-            # Escapar comillas simples en los valores
-            curp = dato['CURP'].replace("'", "''")
-            cct = dato['CCT'].replace("'", "''")
-            clave_carrera = dato['Carrera'].replace("'", "''")
-            promedio = dato['Promedio'].replace("'", "''")
-            
-            # Convertir promedio a decimal si es posible
-            try:
-                promedio_valor = float(promedio) if promedio else None
-                promedio_str = str(promedio_valor) if promedio_valor is not None else 'NULL'
-            except:
-                promedio_str = 'NULL'
-            
-            # Construir la línea INSERT
-            linea = f"    ('{curp}', '{cct}', '{clave_carrera}', {promedio_str})"
-            
-            # Agregar coma si no es el último elemento
-            if i < len(datos_completos) - 1:
-                linea += ","
-            else:
-                linea += ";"
-            
-            f.write(linea + "\n")
-        
-        # Agregar comentario final
-        f.write("\n-- Fin del script\n")
-    
-    print(f"Archivo SQL generado: 'Mysql Queries/insert_estudiantes.sql'")
+    sql_path = os.path.join('Mysql Queries', 'Estudiantes.sql')
+    with open(sql_path, 'w', encoding='utf-8') as f:
+        f.write("-- SQL script to insert students\n")
+        f.write(f"-- Automatically generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"-- Total students: {len(datos_completos)}\n\n")
+        f.write("-- Table: Estudiantes (EstudianteId, Curp, Sexo, Edad, FechaNacimiento, Promedio, CarreraId, PlantelId, Entidad, Municipio)\n")
+        f.write("INSERT INTO Estudiantes (EstudianteId, Curp, Sexo, Edad, FechaNacimiento, Promedio, CarreraId, PlantelId, Entidad, Municipio) VALUES\n")
+        valores = []
+        for idx, dato in enumerate(datos_completos):
+            estudiante_id = idx + 1
+            curp = dato.get('CURP', '').replace("'", "''")
+            sexo = dato.get('Sexo', '').replace("'", "''")
+            edad = dato.get('Edad', '')
+            fecha_nacimiento = dato.get('FechaNacimiento', '')
+            promedio = dato.get('Promedio', None)
+            carrera_id = dato.get('CarreraId', 'NULL')
+            plantel_id = dato.get('PlantelId', 'NULL')
+            entidad = dato.get('Entidad', '').replace("'", "''")
+            municipio = dato.get('Municipio', '').replace("'", "''")
+            edad_str = str(edad) if edad not in [None, ''] else 'NULL'
+            fecha_nac_str = f"'{fecha_nacimiento}'" if fecha_nacimiento else 'NULL'
+            promedio_str = str(promedio) if promedio not in [None, ''] else 'NULL'
+            valor = f"({estudiante_id}, '{curp}', '{sexo}', {edad_str}, {fecha_nac_str}, {promedio_str}, {carrera_id}, {plantel_id}, '{entidad}', '{municipio}')"
+            valores.append(valor)
+        f.write(',\n'.join(valores))
+        f.write(';\n\n-- End of script\n')
 
 def extraer_curps_validas_18():
-    """Extrae solo las CURPs válidas de 18 caracteres con todos sus datos"""
     try:
-        # Leer el archivo Excel
         df = pd.read_excel('Aspirantes/Aspirantes.xlsx', sheet_name='Aspirantes')
-        print(f"Archivo leído correctamente. Total de registros: {len(df)}")
-        
-        # Leer el archivo de carreras y crear diccionario de mapeo
-        carreras_dict = {}
-        try:
-            df_carreras = pd.read_csv('Carreras/Carreras.csv', header=None, names=['numero', 'nombre'])
-            for _, row in df_carreras.iterrows():
-                carreras_dict[str(row['numero'])] = row['nombre']
-            print(f"Archivo de carreras leído. Total de carreras: {len(carreras_dict)}")
-        except Exception as e:
-            print(f"Error al leer archivo de carreras: {e}")
-            carreras_dict = {}
-        
-        # Filtrar CURPs válidas de 18 caracteres con todos sus datos
-        curps_validas = []
+        print(f"File read successfully. Total records: {len(df)}")
+        carreras_dict = cargar_diccionario_carreras()
+        planteles_dict = cargar_diccionario_planteles()
         datos_completos = []
+        curps_validas = []
         
         for index, row in df.iterrows():
             curp = str(row['CURP'])
             if validar_curp_18(curp):
+                curps_validas.append(curp.strip().upper())
+                sexo, fecha_nacimiento, edad = extraer_info_curp(curp)
+                
                 curp_limpia = curp.strip().upper()
-                curps_validas.append(curp_limpia)
-                
-                # Obtener número de carrera
                 numero_carrera = str(row.get('Carreras', ''))
+                cct = str(row.get('CCT', ''))
+                promedio = row.get('Promedio', '')
                 
-                # Obtener todos los datos del registro
+                carrera_id = carreras_dict.get(numero_carrera, 'NULL')
+                plantel_info = planteles_dict.get(cct, {})
+                plantel_id = plantel_info.get('PlantelId', 'NULL')
+                entidad = plantel_info.get('Entidad', '')
+                municipio = plantel_info.get('Municipio', '')
+                
                 datos_registro = {
                     'CURP': curp_limpia,
-                    'CCT': str(row.get('CCT', '')),
-                    'Carrera': numero_carrera,
-                    'Promedio': str(row.get('Promedio', ''))
+                    'Promedio': promedio,
+                    'Sexo': sexo,
+                    'FechaNacimiento': fecha_nacimiento,
+                    'Edad': edad,
+                    'CarreraId': carrera_id,
+                    'PlantelId': plantel_id,
+                    'Entidad': entidad,
+                    'Municipio': municipio
                 }
                 datos_completos.append(datos_registro)
         
-        print(f"\n=== CURPs VÁLIDAS DE 18 CARACTERES ===")
-        print(f"Total de CURPs válidas encontradas: {len(curps_validas)}")
-        print(f"Porcentaje de CURPs válidas: {len(curps_validas)/len(df)*100:.1f}%")
+        print(f"\n=== VALID 18-CHAR CURPs ===")
+        print(f"Total valid CURPs found: {len(curps_validas)}")
+        print(f"Percentage of valid CURPs: {len(curps_validas)/len(df)*100:.1f}%")
         
         if curps_validas:
-            print(f"\nCURPs válidas encontradas:")
+            print(f"\nValid CURPs found:")
             for curp in curps_validas:
                 print(f"- {curp}")
             
-            # Guardar datos completos en JSON en la carpeta DB Jsons
-            import os
             os.makedirs('DB Jsons', exist_ok=True)
             with open('DB Jsons/estudiantes.json', 'w', encoding='utf-8') as f:
                 json.dump(datos_completos, f, ensure_ascii=False, indent=2)
-            print(f"Datos de estudiantes guardados en 'DB Jsons/estudiantes.json'")
-            
-            # Generar archivo SQL para MySQL
-            generar_archivo_sql(datos_completos)
-            
-            # Mostrar ejemplo de los datos
-            print(f"\nEjemplo de datos guardados:")
-            if datos_completos:
-                print(json.dumps(datos_completos[0], ensure_ascii=False, indent=2))
+            print(f"Student data saved in 'DB Jsons/estudiantes.json'")
+            generar_archivo_sql_estudiantes(datos_completos)
+            print(f"SQL file generated: 'Mysql Queries/Estudiantes.sql'")
+            print(f"\nSample of saved data:")
+            print(json.dumps(datos_completos[0], ensure_ascii=False, indent=2))
         else:
-            print("No se encontraron CURPs válidas de 18 caracteres.")
-            
+            print("No valid 18-character CURPs found.")
     except Exception as e:
-        print(f"Error al procesar el archivo: {e}")
+        print(f"Error processing the file: {e}")
 
 if __name__ == "__main__":
     extraer_curps_validas_18() 

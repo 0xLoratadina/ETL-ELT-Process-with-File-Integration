@@ -2,42 +2,40 @@ import csv
 import os
 from datetime import datetime
 
-# Obtener la ruta absoluta del archivo CSV
-ruta_actual = os.path.dirname(os.path.abspath(__file__))
-ruta_csv = os.path.join(ruta_actual, 'Carreras.csv')
+# Get absolute path for the CSV file
+current_path = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(current_path, 'Carreras.csv')
 
-# Leer el archivo CSV
+# Read the CSV file
 carreras = []
-with open(ruta_csv, 'r', encoding='utf-8-sig') as archivo:
-    lector = csv.reader(archivo)
-    for fila in lector:
-        if len(fila) >= 2:
-            clave_carrera = fila[0].strip().replace('\ufeff', '')  # Elimina BOM si existe
-            nombre_carrera = fila[1].strip()
-            carreras.append((clave_carrera, nombre_carrera))
+with open(csv_path, 'r', encoding='utf-8-sig') as file:
+    reader = csv.reader(file)
+    for idx, row in enumerate(reader):
+        if len(row) >= 2:
+            clave_carrera = row[0].strip().replace('\ufeff', '')
+            nombre_carrera = row[1].strip()
+            carreras.append((idx + 1, clave_carrera, nombre_carrera))  # CarreraId autoincremental simulado
 
-# Generar el query SQL con solo los INSERT statements
-sql = "-- Script SQL para insertar carreras\n"
-sql += f"-- Generado automáticamente el: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-sql += f"-- Total de carreras: {len(carreras)}\n\n"
+# Generate the SQL INSERT statements
+sql = "-- SQL script to insert careers\n"
+sql += f"-- Automatically generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+sql += f"-- Total careers: {len(carreras)}\n\n"
+sql += "-- Table: Carreras (CarreraId, ClaveCarrera, NombreCarrera)\n"
+sql += "INSERT INTO Carreras (CarreraId, ClaveCarrera, NombreCarrera) VALUES\n"
 
-sql += "-- Insertar datos de carreras\n"
-sql += "INSERT INTO carreras (clave_carrera, nombre_carrera) VALUES\n"
-
-valores = []
-for clave_carrera, nombre_carrera in carreras:
-    # Escapar comillas simples en los valores
+values = []
+for carrera_id, clave_carrera, nombre_carrera in carreras:
     clave_escaped = clave_carrera.replace("'", "''")
     nombre_escaped = nombre_carrera.replace("'", "''")
-    valores.append(f"('{clave_escaped}', '{nombre_escaped}')")
+    values.append(f"({carrera_id}, '{clave_escaped}', '{nombre_escaped}')")
 
-sql += ",\n".join(valores) + ";\n\n"
-sql += "-- Fin del script\n"
+sql += ",\n".join(values) + ";\n\n"
+sql += "-- End of script\n"
 
-# Guardar en Mysql Queries
-ruta_sql = os.path.join(ruta_actual, '../Mysql Queries/insert_carreras.sql')
-with open(ruta_sql, 'w', encoding='utf-8') as archivo:
-    archivo.write(sql)
+# Save to Mysql Queries
+sql_path = os.path.join(current_path, '../Mysql Queries/Carreras.sql')
+with open(sql_path, 'w', encoding='utf-8') as file:
+    file.write(sql)
 
-print("Query SQL generado exitosamente en Mysql Queries/insert_carreras.sql")
-print(f"Total de carreras procesadas: {len(carreras)}") 
+print("SQL query successfully generated in Mysql Queries/Carreras.sql")
+print(f"Total careers processed: {len(carreras)}") 
