@@ -101,26 +101,15 @@ def generar_archivo_sql(datos_completos):
         f.write("-- Generado automáticamente el: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n")
         f.write("-- Total de registros: " + str(len(datos_completos)) + "\n\n")
         
-        # Escribir CREATE TABLE si no existe
-        f.write("-- Crear tabla si no existe\n")
-        f.write("CREATE TABLE IF NOT EXISTS estudiantes (\n")
-        f.write("    id INT AUTO_INCREMENT PRIMARY KEY,\n")
-        f.write("    curp VARCHAR(18) NOT NULL UNIQUE,\n")
-        f.write("    cct VARCHAR(20),\n")
-        f.write("    carrera VARCHAR(10),\n")
-        f.write("    promedio DECIMAL(4,2),\n")
-        f.write("    fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n")
-        f.write(");\n\n")
-        
         # Escribir INSERT statements
         f.write("-- Insertar datos de estudiantes\n")
-        f.write("INSERT INTO estudiantes (curp, cct, carrera, promedio) VALUES\n")
+        f.write("INSERT INTO estudiantes (curp, cct, clave_carrera, promedio) VALUES\n")
         
         for i, dato in enumerate(datos_completos):
             # Escapar comillas simples en los valores
             curp = dato['CURP'].replace("'", "''")
             cct = dato['CCT'].replace("'", "''")
-            carrera = dato['Carrera'].replace("'", "''")
+            clave_carrera = dato['Carrera'].replace("'", "''")
             promedio = dato['Promedio'].replace("'", "''")
             
             # Convertir promedio a decimal si es posible
@@ -131,7 +120,7 @@ def generar_archivo_sql(datos_completos):
                 promedio_str = 'NULL'
             
             # Construir la línea INSERT
-            linea = f"    ('{curp}', '{cct}', '{carrera}', {promedio_str})"
+            linea = f"    ('{curp}', '{cct}', '{clave_carrera}', {promedio_str})"
             
             # Agregar coma si no es el último elemento
             if i < len(datos_completos) - 1:
