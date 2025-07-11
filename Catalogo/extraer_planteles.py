@@ -1,5 +1,4 @@
 import pdfplumber
-import re
 import os
 from typing import List, Dict
 
@@ -8,49 +7,35 @@ def extraer_datos_pdf(ruta_pdf: str) -> List[Dict]:
     try:
         with pdfplumber.open(ruta_pdf) as pdf:
             for pagina in pdf.pages:
-                texto = pagina.extract_text()
-                if texto:
-                    lineas = texto.split('\n')
-                    for linea in lineas:
-                        datos = procesar_linea_plantel(linea)
-                        if datos:
-                            planteles.append(datos)
+                tablas = pagina.extract_tables()
+                for tabla in tablas:
+                    for fila in tabla:
+                        # Validar que la fila tenga al menos 6 columnas y que ninguna sea None
+                        if not fila or len(fila) < 6:
+                            continue
+                        if fila[0] is None or 'ENTIDAD' in str(fila[0]):
+                            continue
+                        if any(c is None for c in fila[:6]):
+                            continue
+                        entidad = str(fila[0]).strip()
+                        municipio = str(fila[1]).strip()
+                        localidad = str(fila[2]).strip()
+                        nombre_plantel = str(fila[3]).strip()
+                        subsistema = str(fila[4]).strip()
+                        cct = str(fila[5]).strip()
+                        # Validar CCT
+                        if len(cct) == 10:
+                            planteles.append({
+                                'cct': cct,
+                                'entidad': entidad,
+                                'municipio': municipio,
+                                'localidad': localidad,
+                                'nombre_plantel': nombre_plantel,
+                                'subsistema': subsistema
+                            })
     except Exception as e:
         print(f"Error al procesar el PDF: {e}")
     return planteles
-
-def procesar_linea_plantel(linea: str) -> Dict | None:
-    linea = linea.strip()
-    if not linea or len(linea) < 10:
-        return None
-    if linea.startswith('ENTIDAD MUNICIPIO LOCALIDAD'):
-        return None
-    cct_pattern = r'(\b\d{2}[A-Z]{3}\d{4}[A-Z]\b)$'
-    cct_match = re.search(cct_pattern, linea)
-    if cct_match:
-        cct = cct_match.group(1)
-        linea_sin_cct = linea[:cct_match.start()].strip()
-        partes = linea_sin_cct.split()
-        if len(partes) < 5:
-            return None
-        entidad = partes[0]
-        municipio = partes[1]
-        localidad = partes[2]
-        if len(partes) == 5:
-            nombre_plantel = partes[3]
-            subsistema = partes[4]
-        else:
-            nombre_plantel = ' '.join(partes[3:-1])
-            subsistema = partes[-1]
-        return {
-            'cct': cct,
-            'entidad': entidad,
-            'municipio': municipio,
-            'localidad': localidad,
-            'nombre_plantel': nombre_plantel,
-            'subsistema': subsistema
-        }
-    return None
 
 def generar_insert_sql(planteles: List[Dict], archivo_salida: str):
     with open(archivo_salida, 'w', encoding='utf-8') as f:
